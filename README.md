@@ -1,1 +1,1 @@
-# Neutron-star-equation-of-state
+# Neutron star equation of state by Dr. Lattimer
