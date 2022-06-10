@@ -4,13 +4,13 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from matplotlib.colors import LogNorm
+import scipy
 from scipy import ndimage as ndi
-import scipy as scipy
 from scipy.stats import norm
 from multiprocessing import Pool
 import random
 
-cut=True#False
+cut=False
 
 newparams = {'axes.labelsize': 16, 'axes.linewidth': 1, 'savefig.dpi': 300,
              'lines.linewidth': 1.5, 'figure.figsize': (8, 6),
@@ -25,73 +25,84 @@ plt.rcParams.update(newparams)
 res=0.0159 #pixel size in kpc.
 max_error=20. #max velocity error in km/s.
 
-velo = fits.open('M87_velocitymap.fits')
+velo = fits.open('M87_velocitymap(2).xcf')
 velo_data = velo[0].data
 velo.close()
 
-error=fits.open("M87_errvelocitymap.fits")
+error=fits.open("M87_errvelocitymap.xcf")
 error_data = error[0].data
 error.close()
 
 (Cx,Cy)=(155, 153.) #position of SMBH
 
+#create a mask to select a fraction of the points.
+def make_mask(velo_data=velo_data,mask_size=1000):
+  a = np.zeros(velo_data.shape, dtype=int)
+  b=a.flatten()
+  b[0:mask_size] = 1
+  np.random.shuffle(b)
+  b = b.astype(bool)
+  a=b.reshape(velo_data.shape)
+  return a
+
 def make_data(max_error,velo_data=velo_data,error_data=error_data):
   xvalues = np.arange(0,len(velo_data[0,:]))
   yvalues = np.arange(0,len(velo_data[:,0]))
   xx, yy = np.meshgrid(xvalues, yvalues)
- 
 
+  #add this right after the function definition of make_data
+  this_mask=make_mask(velo_data=velo_data,mask_size=1000)
 
-#this is an experiment similar to jackknife resampling. Default is using the full image (no cut).
-if cut is True:
-  slope=np.arctan(np.pi/2)
-  random_mask=(yy>Cy)&(yy<slope*(xx-Cx)+Cy)
-  good_v=(velo_data<1000)&(velo_data>-2000)&(error_data<max_error)&random_mask
-else:
-  good_v=(velo_data<1000)&(velo_data>-2000)&(error_data<max_error)
-  print("good_v",good_v.shape)
-  print("total number of points used:", velo_data[good_v].shape)
-  velo_plot = np.ma.masked_array(velo_data, mask=~good_v)
-  #first make a velocity map
-  plt.clf()
-  plt.plot(Cx,Cy,marker="X",color="k",markersize=10,linestyle="None",label="Black Hole Position")
-  plt.imshow(velo_plot,vmin=-300, vmax=300,cmap="bwr")
-  y_labels=np.arange(0,4)
-  y_locs=y_labels/res
-  x_labels=np.arange(0,4)
-  x_locs=x_labels/res
-  plt.xticks(x_locs, x_labels)
-  plt.yticks(y_locs, y_labels)
-  plt.xlabel("x (kpc)")
-  plt.ylabel("y (kpc)")
-  plt.gca().invert_yaxis()
-  cb=plt.colorbar()
-  cb.set_label("line-of-sight velocity (km/s)")
-  plt.legend(loc="upper left",prop={'size': 14})
-  plt.savefig("Virgo_Halpha_v_use.png")
-  #begin calculations of l and delta_v
-  goodxx=xx[good_v]
-  goodyy=yy[good_v]
-  vel_a = np.reshape(velo_data[good_v], (velo_data[good_v].size, 1))
-  vel_b = np.reshape(velo_data[good_v], (1, velo_data[good_v].size))
-  v_diff_matrix = vel_a - vel_b
-  error_a = np.reshape(error_data[good_v]**2, (error_data[good_v].size, 1))
-  error_b = np.reshape(error_data[good_v]**2, (1, error_data[good_v].size))
-  error_matrix = error_a + error_b
-  px_a = np.reshape(goodxx, (goodxx.size, 1))
-  px_b = np.reshape(goodxx, (1, goodxx.size))
-  py_a = np.reshape(goodyy, (goodyy.size, 1))
-  py_b = np.reshape(goodyy, (1, goodyy.size))
-  dist_matrix = np.sqrt((px_a - px_b)**2 + (py_a - py_b)**2)
-  v_diff_half = np.ndarray.flatten(np.triu(v_diff_matrix, k=0))
-  dist_half = np.ndarray.flatten(np.triu(dist_matrix, k=0)) # this is still a 2D matrix, with the lower half values all set to 0
-  error_half=np.ndarray.flatten(np.triu(error_matrix, k=0))
-  good_dist = dist_half>0
-  np_dist=dist_half[good_dist]
-  np_v_diff=v_diff_half[good_dist]
-  np_error_2=error_half[good_dist]
-  #np.savez("M87_save.npz",np_dist=np_dist,np_v_diff=np_v_diff,np_error_2=np_error_2)
-  return np_dist, np_v_diff, np_error_2
+  #this is an experiment similar to jackknife resampling. Default is using the full image (no cut).
+  if cut is True:
+    slope=np.arctan(np.pi/2)
+    random_mask=(yy>Cy)&(yy<slope*(xx-Cx)+Cy)
+    good_v=(velo_data<1000)&(velo_data>-2000)&(error_data<max_error)&random_mask
+  else:
+    good_v = (velo_data < 1000) & (velo_data > -2000) & (error_data < max_error) & this_mask
+    print("good_v",good_v.shape)
+    print("total number of points used:", velo_data[good_v].shape)
+    velo_plot = np.ma.masked_array(velo_data, mask=~good_v)
+    #first make a velocity map
+    plt.clf()
+    plt.plot(Cx,Cy,marker="X",color="k",markersize=10,linestyle="None",label="Black Hole Position")
+    plt.imshow(velo_plot,vmin=-300, vmax=300,cmap="bwr")
+    y_labels=np.arange(0,4)
+    y_locs=y_labels/res
+    x_labels=np.arange(0,4)
+    x_locs=x_labels/res
+    plt.xticks(x_locs, x_labels)
+    plt.yticks(y_locs, y_labels)
+    plt.xlabel("x (kpc)")
+    plt.ylabel("y (kpc)")
+    plt.gca().invert_yaxis()
+    cb=plt.colorbar()
+    cb.set_label("line-of-sight velocity (km/s)")
+    plt.legend(loc="upper left",prop={'size': 14})
+    plt.savefig("Virgo_Halpha_v_use.png")
+    #begin calculations of l and delta_v
+    goodxx=xx[good_v]
+    goodyy=yy[good_v]
+    vel_a = np.reshape(velo_data[good_v], (velo_data[good_v].size, 1))
+    vel_b = np.reshape(velo_data[good_v], (1, velo_data[good_v].size))
+    v_diff_matrix = vel_a - vel_b
+    error_a = np.reshape(error_data[good_v]**2, (error_data[good_v].size, 1))
+    error_b = np.reshape(error_data[good_v]**2, (1, error_data[good_v].size))
+    error_matrix = error_a + error_b
+    px_a = np.reshape(goodxx, (goodxx.size, 1))
+    px_b = np.reshape(goodxx, (1, goodxx.size))
+    py_a = np.reshape(goodyy, (goodyy.size, 1))
+    py_b = np.reshape(goodyy, (1, goodyy.size))
+    dist_matrix = np.sqrt((px_a - px_b)**2 + (py_a - py_b)**2)
+    v_diff_half = np.ndarray.flatten(np.triu(v_diff_matrix, k=0))
+    dist_half = np.ndarray.flatten(np.triu(dist_matrix, k=0)) # this is still a 2D matrix, with the lower half values all set to 0
+    error_half=np.ndarray.flatten(np.triu(error_matrix, k=0))
+    good_dist = dist_half>0
+    np_dist=dist_half[good_dist]
+    np_v_diff=v_diff_half[good_dist]
+    np_error_2=error_half[good_dist]
+    #np.savez("M87_save.npz",np_dist=np_dist,np_v_diff=np_v_diff,np_error_2=np_error_2)
+    return np_dist, np_v_diff, np_error_2
 
 
 def make_vsf_plot(d_max=600,n_bins=200,check_Guassian=False):
@@ -116,11 +127,11 @@ def make_vsf_plot(d_max=600,n_bins=200,check_Guassian=False):
   v_diff_mean2=np.zeros(n_bins)
   error_mean=np.zeros(n_bins)
   for i in range(0,n_bins-1):
-      this_bin=(np_dist>=dist_array[i])&(np_dist<dist_array[i+1])
-      v_diff_mean[i]=np.mean(np.abs(np_v_diff[this_bin]))
-      v_diff_mean2[i]=np.mean((np_v_diff[this_bin])**2)
-      error_mean[i]=np.sqrt(np.mean(np_error_2[this_bin]))
-      print(dist_array_kpc[i],np_v_diff[this_bin].size,error_mean[i])
+    this_bin=(np_dist>=dist_array[i])&(np_dist<dist_array[i+1])
+    v_diff_mean[i]=np.mean(np.abs(np_v_diff[this_bin]))
+    v_diff_mean2[i]=np.mean((np_v_diff[this_bin])**2)
+    error_mean[i]=np.sqrt(np.mean(np_error_2[this_bin]))
+    print(dist_array_kpc[i],np_v_diff[this_bin].size,error_mean[i])
   error_mean_smooth=run_helper(dist_array_kpc,error_mean)
   v_diff_mean_smooth=run_helper(dist_array_kpc,v_diff_mean)
   lower_v=v_diff_mean_smooth-error_mean_smooth
@@ -149,8 +160,6 @@ def make_vsf_plot(d_max=600,n_bins=200,check_Guassian=False):
   else:
     np.savez("Virgo_final",dist_array_kpc=dist_array_kpc,v_diff_mean=v_diff_mean,v_diff_mean2=v_diff_mean2,lower_v=lower_v,upper_v=upper_v,v_diff_mean_smooth=v_diff_mean_smooth)
   return
-
-
 
 def nan_helper(y):
   return np.isnan(y), lambda z: z.nonzero()[0]
