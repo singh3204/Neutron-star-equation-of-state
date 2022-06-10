@@ -21,22 +21,21 @@ newparams = {'axes.labelsize': 16, 'axes.linewidth': 1, 'savefig.dpi': 300,
              'legend.handlelength': 1.5}
 plt.rcParams.update(newparams)
 
+velo = fits.open('M87_velocitymap(2).fits')
+velo_data = velo[0].data
+velo.close()
+
+error=fits.open("M87_errvelocitymap.fits")
+error_data = error[0].data
+error.close()
 
 res=0.0159 #pixel size in kpc.
 max_error=20. #max velocity error in km/s.
 
-velo = fits.open('M87_velocitymap(2).xcf')
-velo_data = velo[0].data
-velo.close()
-
-error=fits.open("M87_errvelocitymap.xcf")
-error_data = error[0].data
-error.close()
-
 (Cx,Cy)=(155, 153.) #position of SMBH
 
 #create a mask to select a fraction of the points.
-def make_mask(velo_data=velo_data,mask_size=1000):
+def make_mask(velo_data=velo_data,mask_size=100000):
   a = np.zeros(velo_data.shape, dtype=int)
   b=a.flatten()
   b[0:mask_size] = 1
@@ -51,7 +50,7 @@ def make_data(max_error,velo_data=velo_data,error_data=error_data):
   xx, yy = np.meshgrid(xvalues, yvalues)
 
   #add this right after the function definition of make_data
-  this_mask=make_mask(velo_data=velo_data,mask_size=1000)
+  this_mask=make_mask(velo_data=velo_data,mask_size=100000)
 
   #this is an experiment similar to jackknife resampling. Default is using the full image (no cut).
   if cut is True:
@@ -114,10 +113,10 @@ def make_vsf_plot(d_max=600,n_bins=200,check_Guassian=False):
   print("unique_array",unique.size, unique)
   print("new dist_array",dist_array[0:14])
   dist_array_kpc=dist_array*0.0159
-  y_expect=dist_array**(1.0/3)*34
-  y_expect2=dist_array**(1.0/2)*22
-  y_expect3=dist_array**(2./3)*14
-  y_expect4=dist_array*4
+  y_expect=(dist_array**(1.0/3))*34
+  y_expect2=(dist_array**(1.0/2))*22
+  y_expect3=(dist_array**(2.0/3))*14
+  y_expect4=(dist_array*4)
   plt.clf()
   f = plt.figure(figsize = (10,8))
   plt.loglog(dist_array_kpc,y_expect,linestyle="-",label="1/3")
