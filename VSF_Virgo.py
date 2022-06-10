@@ -2,8 +2,8 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-#added from stropy.io.fits.hdu.hdulist import _File, FILE_MODES
-from astropy.io.fits.hdu.hdulist import _File, FILE_MODES
+#TODO added from stropy.io.fits.hdu.hdulist import _File, FILE_MODES
+#from astropy.io.fits.hdu.hdulist import _File, FILE_MODES
 from astropy.io import fits
 from matplotlib.colors import LogNorm
 import scipy
@@ -11,7 +11,6 @@ from scipy import ndimage as ndi
 from scipy.stats import norm
 from multiprocessing import Pool
 import random
-
 
 cut=False
 
@@ -24,7 +23,7 @@ newparams = {'axes.labelsize': 16, 'axes.linewidth': 1, 'savefig.dpi': 300,
              'legend.handlelength': 1.5}
 plt.rcParams.update(newparams)
 
-#added ignore_missing_simple=True
+#TODO added ignore_missing_simple=True
 ignore_missing_simple=True
 
 velo = fits.open('M87_velocitymap.fits')
@@ -40,7 +39,7 @@ max_error=20. #max velocity error in km/s.
 
 (Cx,Cy)=(155, 153.) #position of SMBH
 
-#added make_mask function
+#TODO added make_mask function
 #create a mask to select a fraction of the points.
 def make_mask(velo_data=velo_data,mask_size=100000):
   a = np.zeros(velo_data.shape, dtype=int)
@@ -56,7 +55,7 @@ def make_data(max_error,velo_data=velo_data,error_data=error_data):
   yvalues = np.arange(0,len(velo_data[:,0]))
   xx, yy = np.meshgrid(xvalues, yvalues)
 
-  #added this_mask
+  #TODO added this_mask
   #add this right after the function definition of make_data
   this_mask=make_mask(velo_data=velo_data,mask_size=1000)
 
@@ -111,7 +110,6 @@ def make_data(max_error,velo_data=velo_data,error_data=error_data):
     #np.savez("M87_save.npz",np_dist=np_dist,np_v_diff=np_v_diff,np_error_2=np_error_2)
     return np_dist, np_v_diff, np_error_2
 
-
 def make_vsf_plot(d_max=600,n_bins=200,check_Guassian=False):
   (np_dist,np_v_diff, np_error_2)=make_data(max_error=20)
   #need to be careful with creating the list of l. The first few values need to be set by hand because of the discretization of the map.
@@ -121,10 +119,10 @@ def make_vsf_plot(d_max=600,n_bins=200,check_Guassian=False):
   print("unique_array",unique.size, unique)
   print("new dist_array",dist_array[0:14])
   dist_array_kpc=dist_array*0.0159
-  y_expect=(dist_array**(1.0/3))*34
-  y_expect2=(dist_array**(1.0/2))*22
-  y_expect3=(dist_array**(2.0/3))*14
-  y_expect4=(dist_array*4)
+  y_expect=dist_array**(1.0/3)*34
+  y_expect2=dist_array**(1.0/2)*22
+  y_expect3=dist_array**(2.0/3)*14
+  y_expect4=dist_array*4
   plt.clf()
   f = plt.figure(figsize = (10,8))
   plt.loglog(dist_array_kpc,y_expect,linestyle="-",label="1/3")
